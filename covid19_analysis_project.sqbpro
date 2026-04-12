@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?><sqlb_project><db path="F:/Project/COVID19-SQL-Data-Analysis/covid19.db" readonly="0" foreign_keys="1" case_sensitive_like="0" temp_store="0" wal_autocheckpoint="1000" synchronous="2"/><attached/><window><main_tabs open="structure browser pragmas query" current="3"/></window><tab_structure><column_width id="0" width="300"/><column_width id="1" width="0"/><column_width id="2" width="125"/><column_width id="3" width="8224"/><column_width id="4" width="0"/><expanded_item id="0" parent="1"/><expanded_item id="1" parent="1"/><expanded_item id="2" parent="1"/><expanded_item id="3" parent="1"/></tab_structure><tab_browse><current_table name="4,11:mainCovidDeaths"/><default_encoding codec=""/><browse_table_settings/></tab_browse><tab_sql><sql name="data_quality_analysis">-- Query 1:
+-- Compare total_cases vs sum of new_cases per country
+-- ============================================================
+
+-- In this query, I compare two different representations of COVID-19 case data per country:
+-- MAX(total_cases) which represents the final cumulative reported cases, and
+-- SUM(new_cases) which represents the total sum of daily reported cases.
+
+-- Ideally, both values should be equal since total cases are expected to be the accumulation of daily new cases.
+
+-- Any difference between them indicates potential data inconsistencies such as missing values or reporting delays.
+
+SELECT 
+    location,
+    MAX(total_cases) AS total_cases,
+    SUM(new_cases) AS new_cases
+FROM CovidDeaths
+WHERE continent IS NOT NULL
+GROUP BY location
+HAVING MAX(total_cases) &lt;&gt; SUM(new_cases)
+ORDER BY new_cases DESC;
+
+-- Observation:
+-- The results show that only 7 countries exhibit a discrepancy between MAX(total_cases) and SUM(new_cases).
+
+-- These countries are: United States, Turkey, Japan, South Korea, China, Thailand, and Taiwan.
+
+-- In most of these cases, the difference is very small (typically 1–2 cases), indicating minor reporting gaps or missing daily entries.
+
+-- However, Turkey shows a larger discrepancy, suggesting more significant inconsistencies in daily reporting data.
+
+
+
+
+
+--  ____________________________________________________________________________________________________________________________________________________
+
+
+
+
+
+-- ============================================================
+-- Query 2:
+-- Find rows where new_cases is missing but total_cases exists
+-- ============================================================
+
+-- This query identifies records where new_cases is NULL while total_cases is NOT NULL.
+
+-- These cases represent missing daily reported values despite available cumulative data.
+
+SELECT 
+    location,
+    total_cases,
+    new_cases
+FROM CovidDeaths
+WHERE new_cases IS NULL 
+AND total_cases IS NOT NULL;
+
+-- Observation:
+-- The results show that NULL values in new_cases occur exactly in the same 7 countries identified in Query 1:
+-- United States, Turkey, Japan, South Korea, China, Thailand, and Taiwan.
+
+-- These missing values appear in early reporting records where cumulative cases already exist but daily breakdown is not recorded.
+
+-- These NULL values should logically correspond to the difference between MAX(total_cases) and SUM(new_cases),
+-- which explains the small discrepancies observed in the aggregated comparison between cumulative and daily case totals.
+</sql><current_tab id="0"/></tab_sql></sqlb_project>
