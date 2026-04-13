@@ -1,4 +1,5 @@
-<?xml version="1.0" encoding="UTF-8"?><sqlb_project><db path="F:/Project/COVID19-SQL-Data-Analysis/covid19.db" readonly="0" foreign_keys="1" case_sensitive_like="0" temp_store="0" wal_autocheckpoint="1000" synchronous="2"/><attached/><window><main_tabs open="structure browser pragmas query" current="3"/></window><tab_structure><column_width id="0" width="300"/><column_width id="1" width="0"/><column_width id="2" width="125"/><column_width id="3" width="8224"/><column_width id="4" width="0"/><expanded_item id="0" parent="1"/><expanded_item id="1" parent="1"/><expanded_item id="2" parent="1"/><expanded_item id="3" parent="1"/></tab_structure><tab_browse><current_table name="4,11:mainCovidDeaths"/><default_encoding codec=""/><browse_table_settings/></tab_browse><tab_sql><sql name="data_quality_analysis">-- Query 1:
+<?xml version="1.0" encoding="UTF-8"?><sqlb_project><db path="F:/Project/COVID19-SQL-Data-Analysis/covid19.db" readonly="0" foreign_keys="1" case_sensitive_like="0" temp_store="0" wal_autocheckpoint="1000" synchronous="2"/><attached/><window><main_tabs open="structure browser pragmas query" current="3"/></window><tab_structure><column_width id="0" width="300"/><column_width id="1" width="0"/><column_width id="2" width="125"/><column_width id="3" width="8224"/><column_width id="4" width="0"/><expanded_item id="0" parent="1"/><expanded_item id="1" parent="1"/><expanded_item id="2" parent="1"/><expanded_item id="3" parent="1"/></tab_structure><tab_browse><current_table name="4,11:mainCovidDeaths"/><default_encoding codec=""/><browse_table_settings><table schema="main" name="CovidDeaths" show_row_id="0" encoding="" plot_x_axis="" unlock_view_pk="_rowid_"><sort/><column_widths><column index="1" value="92"/><column index="2" value="92"/><column index="3" value="95"/><column index="4" value="91"/><column index="5" value="103"/><column index="6" value="108"/><column index="7" value="104"/><column index="8" value="201"/><column index="9" value="119"/><column index="10" value="115"/><column index="11" value="212"/><column index="12" value="216"/><column index="13" value="212"/><column index="14" value="300"/><column index="15" value="227"/><column index="16" value="223"/><column index="17" value="300"/><column index="18" value="166"/><column index="19" value="116"/><column index="20" value="224"/><column index="21" value="133"/><column index="22" value="241"/><column index="23" value="213"/><column index="24" value="300"/><column index="25" value="230"/><column index="26" value="300"/></column_widths><filter_values/><conditional_formats/><row_id_formats/><display_formats/><hidden_columns/><plot_y_axes/><global_filter/></table></browse_table_settings></tab_browse><tab_sql><sql name="covid19_data_analysis">
+-- Query 1:
 -- Compare total_cases vs sum of new_cases per country
 -- ============================================================
 
@@ -64,4 +65,159 @@ AND total_cases IS NOT NULL;
 
 -- These NULL values should logically correspond to the difference between MAX(total_cases) and SUM(new_cases),
 -- which explains the small discrepancies observed in the aggregated comparison between cumulative and daily case totals.
+
+
+
+
+
+
+
+--  ____________________________________________________________________________________________________________________________________________________
+
+
+
+
+
+
+
+-- ============================================================
+-- Query 3:
+-- Case Fatality Rate (CFR) per country + Top 10 highest values
+-- ============================================================
+
+-- This query calculates the Case Fatality Rate (CFR) per country.
+-- CFR = (Total Deaths / Total Cases) * 100
+-- It identifies countries with the highest death rate relative to confirmed cases.
+-- NULLIF is used to avoid division by zero errors.
+
+SELECT 
+    location, 
+    MAX(total_deaths) AS total_deaths, 
+    MAX(total_cases) AS total_cases, 
+    (MAX(total_deaths) * 1.0 / NULLIF(MAX(total_cases), 0)) * 100 AS CFR
+FROM CovidDeaths
+WHERE continent IS NOT NULL
+GROUP BY location
+ORDER BY CFR DESC
+LIMIT 10;
+
+-- Observation:
+-- The results show the top 10 countries with the highest Case Fatality Rate (CFR).
+
+-- Vanuatu appears with the highest CFR (25%), but this is based on very small case numbers, which can distort the ratio.
+
+-- Yemen and several countries in Africa and the Middle East also show higher CFR values, reflecting either
+-- healthcare system limitations, underreporting of cases, or higher severity of detected cases.
+
+-- Countries with very small case counts tend to have inflated CFR values, so results should be interpreted carefully.
+
+
+
+
+
+
+
+--  ____________________________________________________________________________________________________________________________________________________
+
+
+
+
+
+
+
+
+
+-- ============================================================
+-- Query 4:
+-- Monthly COVID-19 Trend Analysis for Egypt
+-- ============================================================
+
+-- This query analyzes the monthly progression of COVID-19 in Egypt.
+-- It aggregates total cases and total deaths at the end of each month
+-- and calculates the Case Fatality Rate (CFR).
+
+-- strftime('%Y-%m', date) is used to extract year and month from the date,
+-- allowing grouping at the monthly level.
+
+-- CFR = (Total Deaths / Total Cases) * 100
+-- NULLIF is used to prevent division by zero errors.
+
+SELECT
+    strftime('%Y-%m', date) AS month, 
+    location, 
+    MAX(total_cases) AS total_cases, 
+    MAX(total_deaths) AS total_deaths, 
+    (MAX(total_deaths) * 1.0 / NULLIF(MAX(total_cases), 0)) * 100 AS CFR
+    
+FROM CovidDeaths 
+WHERE location = 'Egypt'
+GROUP BY month
+ORDER BY month;
+
+-- Observation:
+-- The results show a clear progression of COVID-19 in Egypt over time.
+-- Total cases increased steadily, especially during mid-2020 and early 2021 waves.
+-- The Case Fatality Rate (CFR) increased from around 1% in early stages
+-- to approximately 5–6% in later months, indicating higher mortality among detected cases.
+
+-- This trend may reflect factors such as:
+-- - Improved detection of severe cases over time
+-- - Healthcare system pressure during peak waves
+
+-- Overall, the data suggests that while infection spread increased,
+-- the fatality rate stabilized around a higher level, which requires careful interpretation.
+
+
+
+
+____________________________________________________________________________________________________________________________________________________
+
+
+
+
+
+-- ============================================================
+-- Query 5:
+-- Monthly and Cumulative COVID-19 Vaccinations per Country
+-- ============================================================
+
+-- This query analyzes COVID-19 vaccination progress over time.
+-- It first calculates total vaccinations per country per month,
+-- then computes a running cumulative total of vaccinations.
+
+WITH monthly_vaccinations AS (
+    SELECT 
+        dth.location AS country,
+        strftime('%Y-%m', dth.date) AS month,
+        SUM(vac.new_vaccinations) AS monthly_vaccinations
+    FROM CovidDeaths AS dth
+    JOIN CovidVaccinations AS vac
+        ON dth.location = vac.location
+        AND dth.date = vac.date
+    WHERE dth.continent IS NOT NULL
+    GROUP BY 
+        dth.location,
+        strftime('%Y-%m', dth.date)
+)
+
+SELECT *,
+    SUM(monthly_vaccinations) OVER (
+        PARTITION BY country
+        ORDER BY month
+    ) AS cumulative_vaccinations
+FROM monthly_vaccinations
+
+ORDER BY 
+    country,
+    month;
+
+-- Result:
+-- Shows vaccinations per month and total vaccinations over time.
+-- Helps to see how vaccination increased in each country.</sql><sql name="SQL 4">Select * 
+from CovidDeaths
+
+
+
+</sql><sql name="SQL 9">Select * 
+from CovidVaccinations
 </sql><current_tab id="0"/></tab_sql></sqlb_project>
